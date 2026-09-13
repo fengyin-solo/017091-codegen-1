@@ -1,0 +1,12 @@
+# 知识配置平台 - Docker Compose
+# 交付标准：docker compose up 后通过 localhost 访问中后台
+
+services:
+  frontend-admin:
+    build: .
+    image: label-01709-frontend-admin:latest
+    container_name: knowledge-config-admin
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    # 启动日志会输出: Startup Success / Frontend Admin: http://localhost:8080

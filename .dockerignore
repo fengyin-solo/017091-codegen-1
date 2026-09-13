@@ -1,0 +1,10 @@
+# 减少构建上下文，仅保留镜像所需
+.git
+.gitignore
+.sop
+*.md
+docs/
+.DS_Store
+.idea
+.vscode
+node_modules

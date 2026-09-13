@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%23111' width='32' height='32' rx='4'/><text x='16' y='22' font-size='16' text-anchor='middle' fill='%23fff' font-family='system-ui'>知</text></svg>" />
+  <title>通用知识 - 知识配置平台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/common.css" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .selection\:bg-emerald-900::selection { background: #047857; color: #fff; }
+  </style>
+</head>
+<body class="bg-canvas text-slate-600 font-sans antialiased min-h-screen selection:bg-emerald-900 selection:text-white">
+  <div id="app" class="flex min-h-screen">
+    <aside class="app-sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon flex items-center justify-center">
+          <span class="iconify" data-icon="lucide:book-open" data-width="20" data-height="20"></span>
+        </div>
+        <span class="sidebar-logo-text">知识配置平台</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item"><span class="iconify nav-item-icon" data-icon="lucide:layout-dashboard" data-width="18" data-height="18"></span>概览</a>
+        <a href="merchant.html" class="nav-item"><span class="iconify nav-item-icon" data-icon="lucide:store" data-width="18" data-height="18"></span>商家知识</a>
+        <a href="merchant-set.html" class="nav-item"><span class="iconify nav-item-icon" data-icon="lucide:layers" data-width="18" data-height="18"></span>商家集合知识</a>
+        <a href="industry.html" class="nav-item"><span class="iconify nav-item-icon" data-icon="lucide:briefcase" data-width="18" data-height="18"></span>行业知识</a>
+        <a href="global.html" class="nav-item router-active"><span class="iconify nav-item-icon" data-icon="lucide:globe" data-width="18" data-height="18"></span>通用知识</a>
+      </nav>
+    </aside>
+    <main class="flex-1 flex flex-col min-w-0">
+      <header class="app-header border-b border-slate-200">
+        <span class="app-header-title text-slate-700 font-medium">知识配置平台</span>
+      </header>
+      <div class="flex-1 p-6 md:p-8 space-y-10">
+        <!-- 通用知识 -->
+        <section>
+          <div class="flex flex-wrap items-end justify-between gap-4 mb-4">
+            <div>
+              <h2 class="section-title tracking-tight text-slate-900">通用知识</h2>
+              <p class="section-desc mt-1 text-sm text-slate-500">对所有商家、行业生效；黑名单中的商家不生效通用知识。</p>
+            </div>
+            <button type="button" id="btnAddKnowledge" class="btn-primary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:plus" data-width="16" data-height="16"></span>新增知识</button>
+          </div>
+          <div class="premium-card overflow-hidden rounded-xl border border-slate-100 shadow-sm">
+            <div class="table-wrap">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th>标准问</th>
+                    <th>相似问</th>
+                    <th>答案</th>
+                    <th class="text-right w-28">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="knowledgeTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 商家黑名单 -->
+        <section>
+          <div class="flex flex-wrap items-end justify-between gap-4 mb-4">
+            <div>
+              <h2 class="section-title tracking-tight text-slate-900">商家黑名单</h2>
+              <p class="section-desc mt-1 text-sm text-slate-500">黑名单中的商家不生效通用知识。</p>
+            </div>
+            <div class="filter-row flex-wrap mb-0">
+              <select id="blacklistAddSelect" class="input-common select-common w-52">
+                <option value="">选择商家加入黑名单</option>
+              </select>
+              <button type="button" id="btnAddBlacklist" class="btn-secondary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:user-minus" data-width="16" data-height="16"></span>加入黑名单</button>
+            </div>
+          </div>
+          <div class="premium-card overflow-hidden rounded-xl border border-slate-100 shadow-sm">
+            <div class="table-wrap">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th>商家 ID</th>
+                    <th>商家名称</th>
+                    <th class="text-right w-24">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="blacklistTableBody"></tbody>
+              </table>
+            </div>
+            <div id="blacklistEmpty" class="empty-state hidden">暂无黑名单商家</div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- 知识编辑弹层 -->
+  <div id="knowledgeModal" class="modal-overlay" style="display: none;">
+    <div class="modal-box premium-card max-w-lg rounded-2xl border border-slate-200 shadow-voyage">
+      <h3 id="knowledgeModalTitle" class="modal-title text-slate-900">新增知识</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">标准问</label>
+          <input type="text" id="formStandardQ" class="input-common rounded-xl" placeholder="输入标准问题" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">相似问（多行，一行一个）</label>
+          <textarea id="formSimilarQ" class="input-common min-h-[80px] rounded-xl" placeholder="每行一个相似问法"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">答案</label>
+          <textarea id="formAnswer" class="input-common min-h-[100px] rounded-xl" placeholder="输入答案内容"></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button type="button" id="knowledgeModalCancel" class="btn-secondary">取消</button>
+        <button type="button" id="knowledgeModalSubmit" class="btn-primary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:check" data-width="16" data-height="16"></span>保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/mock.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/pages/global.js"></script>
+<!-- 模块化重构：原内联脚本已移至 js/pages/global.js
+(function () {
+  var editingKnowledgeId = null;
+  var btnAddKnowledge = document.getElementById('btnAddKnowledge');
+  var knowledgeTableBody = document.getElementById('knowledgeTableBody');
+  var knowledgeModal = document.getElementById('knowledgeModal');
+  var knowledgeModalTitle = document.getElementById('knowledgeModalTitle');
+  var formStandardQ = document.getElementById('formStandardQ');
+  var formSimilarQ = document.getElementById('formSimilarQ');
+  var formAnswer = document.getElementById('formAnswer');
+  var knowledgeModalCancel = document.getElementById('knowledgeModalCancel');
+  var knowledgeModalSubmit = document.getElementById('knowledgeModalSubmit');
+  var blacklistAddSelect = document.getElementById('blacklistAddSelect');
+  var btnAddBlacklist = document.getElementById('btnAddBlacklist');
+  var blacklistTableBody = document.getElementById('blacklistTableBody');
+  var blacklistEmpty = document.getElementById('blacklistEmpty');
+
+  function escapeHtml(s) {
+    var div = document.createElement('div');
+    div.textContent = s == null ? '' : s;
+    return div.innerHTML;
+  }
+
+  function renderKnowledge() {
+    var list = MockStore.getGlobalKnowledge();
+    knowledgeTableBody.innerHTML = '';
+    list.forEach(function (k) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="text-obsidian">' + escapeHtml(k.standardQ || '') + '</td>' +
+        '<td class="text-subtle">' + escapeHtml((k.similarQs || []).join('；')) + '</td>' +
+        '<td class="text-charcoal max-w-xs truncate">' + escapeHtml(k.answer || '') + '</td>' +
+        '<td class="text-right"><button type="button" class="btn-link k-edit mr-2" data-id="' + k.id + '">编辑</button><button type="button" class="btn-link btn-link-danger k-delete" data-id="' + k.id + '">删除</button></td>';
+      knowledgeTableBody.appendChild(tr);
+    });
+    knowledgeTableBody.querySelectorAll('.k-edit').forEach(function (btn) {
+      btn.addEventListener('click', function () { openKnowledgeModal(btn.dataset.id); });
+    });
+    knowledgeTableBody.querySelectorAll('.k-delete').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        Confirm.show('确定删除这条知识？', function () {
+          MockStore.deleteGlobalKnowledge(btn.dataset.id);
+          renderKnowledge();
+          Toast.show('知识删除成功', 'success');
+        });
+      });
+    });
+  }
+
+  function openKnowledgeModal(id) {
+    editingKnowledgeId = id || null;
+    knowledgeModalTitle.textContent = id ? '编辑知识' : '新增知识';
+    if (id) {
+      var list = MockStore.getGlobalKnowledge();
+      var k = list.find(function (x) { return x.id === id; });
+      if (k) {
+        formStandardQ.value = k.standardQ || '';
+        formSimilarQ.value = (k.similarQs || []).join('\n');
+        formAnswer.value = k.answer || '';
+      }
+    } else {
+      formStandardQ.value = '';
+      formSimilarQ.value = '';
+      formAnswer.value = '';
+    }
+    knowledgeModal.style.display = 'flex';
+  }
+
+  function closeKnowledgeModal() {
+    knowledgeModal.style.display = 'none';
+    editingKnowledgeId = null;
+  }
+
+  btnAddKnowledge.addEventListener('click', function () { openKnowledgeModal(); });
+  knowledgeModalCancel.addEventListener('click', closeKnowledgeModal);
+  knowledgeModalSubmit.addEventListener('click', function () {
+    var standardQ = formStandardQ.value.trim();
+    var similarQs = formSimilarQ.value.trim().split(/\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var answer = formAnswer.value.trim();
+    if (!standardQ) { Toast.show('请填写标准问', 'error'); return; }
+    if (editingKnowledgeId) {
+      MockStore.updateGlobalKnowledge(editingKnowledgeId, { standardQ: standardQ, similarQs: similarQs, answer: answer });
+      Toast.show('知识更新成功', 'success');
+    } else {
+      MockStore.addGlobalKnowledge({ standardQ: standardQ, similarQs: similarQs, answer: answer });
+      Toast.show('知识创建成功', 'success');
+    }
+    closeKnowledgeModal();
+    renderKnowledge();
+  });
+  knowledgeModal.addEventListener('click', function (e) { if (e.target === knowledgeModal) closeKnowledgeModal(); });
+
+  function fillBlacklistAddSelect() {
+    var merchants = MockStore.getMerchants();
+    var blacklist = MockStore.getBlacklist();
+    blacklistAddSelect.innerHTML = '<option value="">选择商家加入黑名单</option>';
+    merchants.forEach(function (m) {
+      if (blacklist.indexOf(m.id) !== -1) return;
+      var opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name + '（' + m.id + '）';
+      blacklistAddSelect.appendChild(opt);
+    });
+  }
+
+  function renderBlacklist() {
+    var blacklist = MockStore.getBlacklist();
+    var merchants = MockStore.getMerchants();
+    var map = {};
+    merchants.forEach(function (m) { map[m.id] = m.name; });
+    if (blacklist.length === 0) {
+      blacklistTableBody.innerHTML = '';
+      blacklistEmpty.classList.remove('hidden');
+      var wrap = blacklistTableBody.closest('.table-wrap');
+      if (wrap) wrap.style.display = 'none';
+      return;
+    }
+    blacklistEmpty.classList.add('hidden');
+    var wrap = blacklistTableBody.closest('.table-wrap');
+    if (wrap) wrap.style.display = '';
+    blacklistTableBody.innerHTML = '';
+    blacklist.forEach(function (id) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="font-mono text-sm text-obsidian">' + escapeHtml(id) + '</td>' +
+        '<td class="text-obsidian">' + escapeHtml(map[id] || '-') + '</td>' +
+        '<td class="text-right"><button type="button" class="btn-link bl-remove" data-id="' + id + '">移出</button></td>';
+      blacklistTableBody.appendChild(tr);
+    });
+    blacklistTableBody.querySelectorAll('.bl-remove').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        MockStore.removeBlacklist(btn.dataset.id);
+        renderBlacklist();
+        fillBlacklistAddSelect();
+        Toast.show('已从黑名单移出', 'success');
+      });
+    });
+  }
+
+  btnAddBlacklist.addEventListener('click', function () {
+    var id = blacklistAddSelect.value;
+    if (!id) { Toast.show('请选择商家', 'error'); return; }
+    MockStore.addBlacklist(id);
+    fillBlacklistAddSelect();
+    renderBlacklist();
+    Toast.show('已加入黑名单', 'success');
+  });
+
+  renderKnowledge();
+  fillBlacklistAddSelect();
+  renderBlacklist();
+})();
+-->
+</body>
+</html>

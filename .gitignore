@@ -1,0 +1,28 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# 可选：若后续引入 Node 构建
+node_modules/
+
+# 可选：若后续引入 Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

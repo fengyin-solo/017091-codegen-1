@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%23111' width='32' height='32' rx='4'/><text x='16' y='22' font-size='16' text-anchor='middle' fill='%23fff' font-family='system-ui'>知</text></svg>" />
+  <title>登录 - 知识配置平台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/common.css" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .login-bg {
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f1f5f9 100%);
+      min-height: 100vh;
+    }
+    .login-card {
+      animation: card-in 0.4s ease;
+    }
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(-20px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .input-login {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      transition: all 0.2s ease;
+    }
+    .input-login:focus {
+      background: #ffffff;
+      border-color: #94a3b8;
+      box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.06);
+    }
+    .btn-login {
+      background: #0f172a;
+      transition: all 0.2s ease;
+    }
+    .btn-login:hover {
+      background: #1e293b;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+    }
+    .btn-login:active {
+      transform: translateY(0);
+    }
+    .shake {
+      animation: shake 0.4s ease;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-8px); }
+      40%, 80% { transform: translateX(8px); }
+    }
+  </style>
+</head>
+<body class="login-bg text-slate-600 font-sans antialiased">
+  <div class="min-h-screen flex items-center justify-center p-6">
+    <div class="w-full max-w-md">
+      <!-- Logo -->
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-slate-900 rounded-2xl shadow-lg mb-4">
+          <span class="iconify text-white" data-icon="lucide:book-open" data-width="32" data-height="32"></span>
+        </div>
+        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">知识配置平台</h1>
+        <p class="text-sm text-slate-500 mt-1">运营中后台管理系统</p>
+      </div>
+
+      <!-- 登录卡片 -->
+      <div class="login-card premium-card p-8 rounded-2xl border border-slate-200 shadow-xl">
+        <h2 class="text-xl font-semibold text-slate-900 mb-6 text-center">登录账号</h2>
+        
+        <form id="loginForm" class="space-y-5">
+          <div>
+            <label for="username" class="block text-sm font-medium text-slate-700 mb-2">用户名</label>
+            <div class="relative">
+              <span class="iconify absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" data-icon="lucide:user" data-width="18" data-height="18"></span>
+              <input 
+                type="text" 
+                id="username" 
+                name="username" 
+                class="input-login w-full pl-10 pr-4 py-3 rounded-xl text-slate-900 placeholder-slate-400 outline-none"
+                placeholder="请输入用户名"
+                autocomplete="username"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label for="password" class="block text-sm font-medium text-slate-700 mb-2">密码</label>
+            <div class="relative">
+              <span class="iconify absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" data-icon="lucide:lock" data-width="18" data-height="18"></span>
+              <input 
+                type="password" 
+                id="password" 
+                name="password" 
+                class="input-login w-full pl-10 pr-4 py-3 rounded-xl text-slate-900 placeholder-slate-400 outline-none"
+                placeholder="请输入密码"
+                autocomplete="current-password"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- 错误提示 -->
+          <div id="errorMsg" class="hidden text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+            <span class="iconify inline-block mr-1 align-text-bottom" data-icon="lucide:alert-circle" data-width="16" data-height="16"></span>
+            <span id="errorText">用户名或密码错误</span>
+          </div>
+
+          <button 
+            type="submit" 
+            id="loginBtn"
+            class="btn-login w-full py-3 text-white font-medium rounded-xl flex items-center justify-center gap-2"
+          >
+            <span class="iconify" data-icon="lucide:log-in" data-width="18" data-height="18"></span>
+            登录
+          </button>
+        </form>
+
+      </div>
+
+      <!-- 底部版权 -->
+      <p class="text-center text-xs text-slate-400 mt-6">
+        &copy; 2024 知识配置平台 · 运营端
+      </p>
+    </div>
+  </div>
+
+  <script src="js/mock.js"></script>
+  <script>
+(function () {
+  'use strict';
+
+  // 如果已登录，直接跳转到首页
+  if (AuthModule.isLoggedIn()) {
+    window.location.href = 'index.html';
+    return;
+  }
+
+  var form = document.getElementById('loginForm');
+  var usernameInput = document.getElementById('username');
+  var passwordInput = document.getElementById('password');
+  var errorMsg = document.getElementById('errorMsg');
+  var errorText = document.getElementById('errorText');
+  var loginBtn = document.getElementById('loginBtn');
+  var loginCard = document.querySelector('.login-card');
+
+  // 显示错误信息
+  function showError(msg) {
+    errorText.textContent = msg;
+    errorMsg.classList.remove('hidden');
+    loginCard.classList.add('shake');
+    setTimeout(function () {
+      loginCard.classList.remove('shake');
+    }, 400);
+  }
+
+  // 隐藏错误信息
+  function hideError() {
+    errorMsg.classList.add('hidden');
+  }
+
+  // 表单提交
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    hideError();
+
+    var username = usernameInput.value.trim();
+    var password = passwordInput.value;
+
+    if (!username) {
+      showError('请输入用户名');
+      usernameInput.focus();
+      return;
+    }
+
+    if (!password) {
+      showError('请输入密码');
+      passwordInput.focus();
+      return;
+    }
+
+    // 禁用按钮，显示加载状态
+    loginBtn.disabled = true;
+    loginBtn.innerHTML = '<span class="iconify animate-spin" data-icon="lucide:loader-2" data-width="18" data-height="18"></span> 登录中...';
+
+    // 模拟网络延迟
+    setTimeout(function () {
+      var result = AuthModule.login(username, password);
+
+      if (result.success) {
+        // 登录成功，跳转到首页
+        window.location.href = 'index.html';
+      } else {
+        // 登录失败
+        showError(result.message || '用户名或密码错误');
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '<span class="iconify" data-icon="lucide:log-in" data-width="18" data-height="18"></span> 登录';
+        passwordInput.value = '';
+        passwordInput.focus();
+      }
+    }, 500);
+  });
+
+  // 输入时隐藏错误
+  usernameInput.addEventListener('input', hideError);
+  passwordInput.addEventListener('input', hideError);
+})();
+  </script>
+</body>
+</html>

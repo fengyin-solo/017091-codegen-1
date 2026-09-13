@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%23111' width='32' height='32' rx='4'/><text x='16' y='22' font-size='16' text-anchor='middle' fill='%23fff' font-family='system-ui'>知</text></svg>" />
+  <title>行业知识 - 知识配置平台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/common.css" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-canvas text-slate-600 font-sans antialiased min-h-screen selection:bg-emerald-900 selection:text-white">
+  <div id="app" class="flex min-h-screen">
+    <aside class="app-sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon flex items-center justify-center">
+          <span class="iconify" data-icon="lucide:book-open" data-width="20" data-height="20"></span>
+        </div>
+        <span class="sidebar-logo-text">知识配置平台</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item"><span class="iconify nav-item-icon" data-icon="lucide:layout-dashboard" data-width="18" data-height="18"></span>概览</a>
+        <a href="merchant.html" class="nav-item"><span class="iconify nav-item-icon" data-icon="lucide:store" data-width="18" data-height="18"></span>商家知识</a>
+        <a href="merchant-set.html" class="nav-item"><span class="iconify nav-item-icon" data-icon="lucide:layers" data-width="18" data-height="18"></span>商家集合知识</a>
+        <a href="industry.html" class="nav-item router-active"><span class="iconify nav-item-icon" data-icon="lucide:briefcase" data-width="18" data-height="18"></span>行业知识</a>
+        <a href="global.html" class="nav-item"><span class="iconify nav-item-icon" data-icon="lucide:globe" data-width="18" data-height="18"></span>通用知识</a>
+      </nav>
+    </aside>
+    <main class="flex-1 flex flex-col min-w-0">
+      <header class="app-header border-b border-slate-200">
+        <span class="app-header-title text-slate-700 font-medium">知识配置平台</span>
+      </header>
+      <div class="flex-1 p-6 md:p-8 space-y-10">
+        <!-- 行业管理 -->
+        <section>
+          <div class="flex flex-wrap items-end justify-between gap-4 mb-4">
+            <h2 class="section-title tracking-tight text-slate-900">行业列表</h2>
+            <button type="button" id="btnAddIndustry" class="btn-primary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:plus" data-width="16" data-height="16"></span>新增行业</button>
+          </div>
+          <div class="premium-card overflow-hidden rounded-xl border border-slate-100 shadow-sm">
+            <div class="table-wrap">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th class="w-48">行业名称</th>
+                    <th class="w-28">行业等级</th>
+                    <th class="w-40">所属分类</th>
+                    <th class="text-right w-40">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="industryTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 当前行业下的知识 -->
+        <section>
+          <h2 class="section-title tracking-tight text-slate-900 mb-4">行业知识</h2>
+          <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div class="flex items-center gap-2">
+              <label class="text-sm font-medium text-slate-600 whitespace-nowrap">筛选</label>
+              <select id="industrySelect" class="input-common select-common w-56" title="筛选列表数据">
+                <option value="">全部行业</option>
+              </select>
+            </div>
+            <button type="button" id="btnAddKnowledge" class="btn-primary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:plus" data-width="16" data-height="16"></span>新增知识</button>
+          </div>
+          <div id="knowledgeEmpty" class="premium-card empty-state hidden rounded-xl border border-slate-100">暂无行业知识数据。</div>
+          <div id="knowledgeBlock">
+            <div class="premium-card overflow-hidden rounded-xl border border-slate-100 shadow-sm">
+              <div class="table-wrap">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th class="w-40">行业</th>
+                      <th>标准问</th>
+                      <th>相似问</th>
+                      <th>答案</th>
+                      <th class="text-right w-28">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="knowledgeTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- 行业编辑弹层 -->
+  <div id="industryModal" class="modal-overlay" style="display: none;">
+    <div class="modal-box premium-card max-w-md rounded-2xl border border-slate-200">
+      <h3 id="industryModalTitle" class="modal-title text-slate-900">新增行业</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">一级行业</label>
+          <select id="industryFormLevel1" class="input-common select-common">
+            <option value="">请选择一级行业</option>
+          </select>
+          <div id="industryFormNewLevel1Wrap" class="mt-2 hidden">
+            <input type="text" id="industryFormNewLevel1" class="input-common rounded-xl" placeholder="输入新一级行业名称" />
+            <p class="text-xs text-slate-500 mt-1">不填二级即新增一级行业；二级留空表示仅建立一级。</p>
+          </div>
+        </div>
+        <div id="industryFormLevel2Wrap">
+          <label class="block text-sm font-medium text-slate-700 mb-1">二级行业（可选）</label>
+          <select id="industryFormLevel2" class="input-common select-common" disabled>
+            <option value="">请先选择一级行业</option>
+          </select>
+          <div id="industryFormNewLevel2Wrap" class="mt-2 hidden">
+            <input type="text" id="industryFormNewLevel2" class="input-common rounded-xl" placeholder="输入新二级行业名称" />
+          </div>
+          <p class="text-xs text-slate-500 mt-1">留空表示当前新增的是一级行业；选择或输入二级则挂载在上方一级下。</p>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button type="button" id="industryModalCancel" class="btn-secondary">取消</button>
+        <button type="button" id="industryModalSubmit" class="btn-primary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:check" data-width="16" data-height="16"></span>保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 知识编辑弹层 -->
+  <div id="knowledgeModal" class="modal-overlay" style="display: none;">
+    <div class="modal-box premium-card max-w-lg rounded-2xl border border-slate-200">
+      <h3 id="knowledgeModalTitle" class="modal-title text-slate-900">新增知识</h3>
+      <div class="space-y-4">
+        <div id="knowledgeFormIndustryWrap">
+          <label class="block text-sm font-medium text-slate-700 mb-1">选择行业</label>
+          <select id="knowledgeFormIndustry" class="input-common select-common">
+            <option value="">请选择要添加知识的行业</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">标准问</label>
+          <input type="text" id="formStandardQ" class="input-common rounded-xl" placeholder="输入标准问题" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">相似问（多行，一行一个）</label>
+          <textarea id="formSimilarQ" class="input-common min-h-[80px] rounded-xl" placeholder="每行一个相似问法"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">答案</label>
+          <textarea id="formAnswer" class="input-common min-h-[100px] rounded-xl" placeholder="输入答案内容"></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button type="button" id="knowledgeModalCancel" class="btn-secondary">取消</button>
+        <button type="button" id="knowledgeModalSubmit" class="btn-primary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:check" data-width="16" data-height="16"></span>保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/mock.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/pages/industry.js"></script>
+<!-- 模块化重构：原内联脚本已移至 js/pages/industry.js
+(function () {
+  var industries = [];
+  var currentIndustryId = '';
+  var editingIndustryId = null;
+  var editingKnowledgeId = null;
+  var level1Options = MockStore.industryLevel1Options;
+  var level2Map = MockStore.industryLevel2Map;
+
+  var btnAddIndustry = document.getElementById('btnAddIndustry');
+  var industryTableBody = document.getElementById('industryTableBody');
+  var industrySelect = document.getElementById('industrySelect');
+  var btnAddKnowledge = document.getElementById('btnAddKnowledge');
+  var knowledgeEmpty = document.getElementById('knowledgeEmpty');
+  var knowledgeBlock = document.getElementById('knowledgeBlock');
+  var knowledgeTableBody = document.getElementById('knowledgeTableBody');
+  var industryModal = document.getElementById('industryModal');
+  var industryModalTitle = document.getElementById('industryModalTitle');
+  var industryFormLevel1 = document.getElementById('industryFormLevel1');
+  var industryFormLevel2 = document.getElementById('industryFormLevel2');
+  var industryFormNewLevel1Wrap = document.getElementById('industryFormNewLevel1Wrap');
+  var industryFormNewLevel1 = document.getElementById('industryFormNewLevel1');
+  var industryFormLevel2Wrap = document.getElementById('industryFormLevel2Wrap');
+  var industryFormNewLevel2Wrap = document.getElementById('industryFormNewLevel2Wrap');
+  var industryFormNewLevel2 = document.getElementById('industryFormNewLevel2');
+  var industryModalCancel = document.getElementById('industryModalCancel');
+  var industryModalSubmit = document.getElementById('industryModalSubmit');
+  var NEW_LEVEL1_VALUE = '__new__';
+  var NEW_LEVEL2_VALUE = '__new_level2__';
+  var knowledgeModal = document.getElementById('knowledgeModal');
+  var knowledgeModalTitle = document.getElementById('knowledgeModalTitle');
+  var knowledgeFormIndustryWrap = document.getElementById('knowledgeFormIndustryWrap');
+  var knowledgeFormIndustry = document.getElementById('knowledgeFormIndustry');
+  var formStandardQ = document.getElementById('formStandardQ');
+  var formSimilarQ = document.getElementById('formSimilarQ');
+  var formAnswer = document.getElementById('formAnswer');
+  var knowledgeModalCancel = document.getElementById('knowledgeModalCancel');
+  var knowledgeModalSubmit = document.getElementById('knowledgeModalSubmit');
+
+  function escapeHtml(s) {
+    var div = document.createElement('div');
+    div.textContent = s == null ? '' : s;
+    return div.innerHTML;
+  }
+
+  /** 按一级分组：先显示一级行业行，再显示其下二级行业行（子分类在父分类下） */
+  function renderIndustries() {
+    industries = MockStore.getIndustries();
+    var level1Only = industries.filter(function (i) { return !i.level2; });
+    var level2List = industries.filter(function (i) { return i.level2; });
+    var level1Order = [];
+    level1Only.forEach(function (i) { if (level1Order.indexOf(i.level1) === -1) level1Order.push(i.level1); });
+    level2List.forEach(function (i) { if (level1Order.indexOf(i.level1) === -1) level1Order.push(i.level1); });
+    industryTableBody.innerHTML = '';
+    level1Order.forEach(function (l1) {
+      var parent = level1Only.find(function (i) { return i.level1 === l1; });
+      var children = level2List.filter(function (i) { return i.level1 === l1; });
+      if (parent) {
+        var tr = document.createElement('tr');
+        tr.className = 'industry-row-parent bg-slate-50';
+        tr.innerHTML =
+          '<td class="text-slate-900 font-medium">' + escapeHtml(parent.level1) + '</td>' +
+          '<td class="text-slate-600">一级</td>' +
+          '<td class="text-slate-500">※</td>' +
+          '<td class="text-right"><button type="button" class="btn-link ind-edit mr-2" data-id="' + parent.id + '">编辑</button><button type="button" class="btn-link btn-link-danger ind-delete" data-id="' + parent.id + '">删除</button></td>';
+        industryTableBody.appendChild(tr);
+      }
+      children.forEach(function (i) {
+        var tr = document.createElement('tr');
+        tr.className = 'industry-row-child';
+        tr.innerHTML =
+          '<td class="' + (parent ? 'pl-10 ' : '') + 'text-slate-700">' + escapeHtml(i.level2) + '</td>' +
+          '<td class="text-slate-600">二级</td>' +
+          '<td class="text-slate-600">' + escapeHtml(i.level1) + '</td>' +
+          '<td class="text-right"><button type="button" class="btn-link ind-edit mr-2" data-id="' + i.id + '">编辑</button><button type="button" class="btn-link btn-link-danger ind-delete" data-id="' + i.id + '">删除</button></td>';
+        industryTableBody.appendChild(tr);
+      });
+    });
+    industryTableBody.querySelectorAll('.ind-edit').forEach(function (btn) {
+      btn.addEventListener('click', function () { openIndustryModal(btn.dataset.id); });
+    });
+    industryTableBody.querySelectorAll('.ind-delete').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        Confirm.show('确定删除该行业？其下知识将一并清除。', function () {
+          MockStore.deleteIndustry(btn.dataset.id);
+          if (currentIndustryId === btn.dataset.id) currentIndustryId = '';
+          renderIndustries();
+          fillIndustrySelect();
+          renderKnowledge();
+          Toast.show('行业删除成功', 'success');
+        });
+      });
+    });
+  }
+
+  function fillIndustrySelect() {
+    industrySelect.innerHTML = '<option value="">全部行业</option>';
+    var byLevel1 = {};
+    industries.forEach(function (i) {
+      if (!byLevel1[i.level1]) byLevel1[i.level1] = [];
+      byLevel1[i.level1].push(i);
+    });
+    var level1Order = level1Options.filter(function (l1) { return byLevel1[l1]; });
+    Object.keys(byLevel1).forEach(function (l1) {
+      if (level1Order.indexOf(l1) === -1) level1Order.push(l1);
+    });
+    level1Order.forEach(function (l1) {
+      var group = document.createElement('optgroup');
+      group.label = l1;
+      byLevel1[l1].forEach(function (i) {
+        var opt = document.createElement('option');
+        opt.value = i.id;
+        opt.textContent = i.level2 ? (i.level2 + '（二级）') : '（一级）';
+        group.appendChild(opt);
+      });
+      industrySelect.appendChild(group);
+    });
+    industrySelect.value = currentIndustryId;
+  }
+
+  /** 填充知识弹窗内的行业下拉（与 fillIndustrySelect 结构一致，用于新增时选择行业） */
+  function fillKnowledgeFormIndustry() {
+    knowledgeFormIndustry.innerHTML = '<option value="">请选择要添加知识的行业</option>';
+    var byLevel1 = {};
+    industries.forEach(function (i) {
+      if (!byLevel1[i.level1]) byLevel1[i.level1] = [];
+      byLevel1[i.level1].push(i);
+    });
+    var level1Order = level1Options.filter(function (l1) { return byLevel1[l1]; });
+    Object.keys(byLevel1).forEach(function (l1) {
+      if (level1Order.indexOf(l1) === -1) level1Order.push(l1);
+    });
+    level1Order.forEach(function (l1) {
+      var group = document.createElement('optgroup');
+      group.label = l1;
+      byLevel1[l1].forEach(function (i) {
+        var opt = document.createElement('option');
+        opt.value = i.id;
+        opt.textContent = i.level2 ? (i.level2 + '（二级）') : '（一级）';
+        group.appendChild(opt);
+      });
+      knowledgeFormIndustry.appendChild(group);
+    });
+  }
+
+  /** 一级选项：现有一级（level2 为空的） + “新建一级行业” */
+  function fillLevel1() {
+    industryFormLevel1.innerHTML = '<option value="">请选择一级行业</option>';
+    var existingLevel1 = industries.filter(function (i) { return !i.level2; }).map(function (i) { return i.level1; });
+    var seen = {};
+    existingLevel1.forEach(function (v) {
+      if (seen[v]) return;
+      seen[v] = true;
+      var opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      industryFormLevel1.appendChild(opt);
+    });
+    var optNew = document.createElement('option');
+    optNew.value = NEW_LEVEL1_VALUE;
+    optNew.textContent = '＋ 新建一级行业';
+    industryFormLevel1.appendChild(optNew);
+  }
+
+  /** 二级选项：留空表示仅新增一级；有值则从预设 + 已有二级中选；可选“新建二级” */
+  function fillLevel2(level1) {
+    industryFormLevel2.innerHTML = '<option value="">不填则新增一级行业</option>';
+    industryFormLevel2.disabled = !level1 || level1 === NEW_LEVEL1_VALUE;
+    industryFormNewLevel2Wrap.classList.add('hidden');
+    industryFormNewLevel2.value = '';
+    if (level1 && level1 !== NEW_LEVEL1_VALUE) {
+      var preset = level2Map[level1] || [];
+      var existing = industries.filter(function (i) { return i.level1 === level1 && i.level2; }).map(function (i) { return i.level2; });
+      var merged = preset.slice();
+      existing.forEach(function (v) { if (merged.indexOf(v) === -1) merged.push(v); });
+      merged.forEach(function (v) {
+        var opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        industryFormLevel2.appendChild(opt);
+      });
+      var optNew = document.createElement('option');
+      optNew.value = NEW_LEVEL2_VALUE;
+      optNew.textContent = '＋ 新建二级行业';
+      industryFormLevel2.appendChild(optNew);
+    }
+  }
+
+  function openIndustryModal(id) {
+    editingIndustryId = id || null;
+    industryModalTitle.textContent = id ? '编辑行业' : '新增行业';
+    industryFormNewLevel1.value = '';
+    fillLevel1();
+    if (id) {
+      var ind = industries.find(function (i) { return i.id === id; });
+      if (ind) {
+        industryFormLevel1.value = ind.level1;
+        industryFormNewLevel1Wrap.classList.add('hidden');
+        industryFormLevel2Wrap.classList.remove('hidden');
+        fillLevel2(ind.level1);
+        industryFormLevel2.value = ind.level2;
+      }
+    } else {
+      industryFormNewLevel1Wrap.classList.add('hidden');
+      industryFormLevel2Wrap.classList.remove('hidden');
+      industryFormLevel2.innerHTML = '<option value="">请先选择一级行业</option>';
+      industryFormLevel2.disabled = true;
+    }
+    industryModal.style.display = 'flex';
+  }
+
+  industryFormLevel1.addEventListener('change', function () {
+    var val = industryFormLevel1.value;
+    if (val === NEW_LEVEL1_VALUE) {
+      industryFormNewLevel1Wrap.classList.remove('hidden');
+      industryFormLevel2Wrap.classList.add('hidden');
+      industryFormNewLevel1.focus();
+    } else {
+      industryFormNewLevel1Wrap.classList.add('hidden');
+      industryFormLevel2Wrap.classList.remove('hidden');
+      fillLevel2(val);
+    }
+  });
+
+  industryFormLevel2.addEventListener('change', function () {
+    if (industryFormLevel2.value === NEW_LEVEL2_VALUE) {
+      industryFormNewLevel2Wrap.classList.remove('hidden');
+      industryFormNewLevel2.focus();
+    } else {
+      industryFormNewLevel2Wrap.classList.add('hidden');
+      industryFormNewLevel2.value = '';
+    }
+  });
+
+  function closeIndustryModal() {
+    industryModal.style.display = 'none';
+    editingIndustryId = null;
+  }
+
+  industryModalCancel.addEventListener('click', closeIndustryModal);
+  industryModalSubmit.addEventListener('click', function () {
+    var level1;
+    var level2 = (industryFormLevel2.value || '').trim();
+    if (level2 === NEW_LEVEL2_VALUE) level2 = (industryFormNewLevel2.value || '').trim();
+    if (industryFormLevel1.value === NEW_LEVEL1_VALUE) {
+      level1 = (industryFormNewLevel1.value || '').trim();
+      level2 = '';
+      if (!level1) { Toast.show('请输入新一级行业名称', 'error'); return; }
+    } else {
+      level1 = (industryFormLevel1.value || '').trim();
+      if (!level1) { Toast.show('请选择一级行业', 'error'); return; }
+      if (!editingIndustryId && !level2) { Toast.show('新增二级时请选择或输入二级行业；若仅新增一级请选择“＋ 新建一级行业”并输入名称', 'error'); return; }
+    }
+    if (editingIndustryId) {
+      MockStore.updateIndustry(editingIndustryId, level1, level2);
+      Toast.show('行业信息更新成功', 'success');
+    } else {
+      MockStore.createIndustry(level1, level2);
+      Toast.show('行业创建成功', 'success');
+    }
+    closeIndustryModal();
+    renderIndustries();
+    fillIndustrySelect();
+  });
+  industryModal.addEventListener('click', function (e) { if (e.target === industryModal) closeIndustryModal(); });
+
+  btnAddIndustry.addEventListener('click', function () { openIndustryModal(); });
+
+  industrySelect.addEventListener('change', function () {
+    currentIndustryId = industrySelect.value || '';
+    renderKnowledge();
+  });
+
+  function renderKnowledge() {
+    var list = [];
+    var allIndustries = MockStore.getIndustries();
+    if (currentIndustryId) {
+      allIndustries.forEach(function (i) {
+        if (i.id !== currentIndustryId) return;
+        (MockStore.getIndustryKnowledge(i.id) || []).forEach(function (k) {
+          list.push({ industryId: i.id, industryName: i.name, data: k });
+        });
+      });
+    } else {
+      allIndustries.forEach(function (i) {
+        (MockStore.getIndustryKnowledge(i.id) || []).forEach(function (k) {
+          list.push({ industryId: i.id, industryName: i.name, data: k });
+        });
+      });
+    }
+    if (list.length === 0) {
+      knowledgeEmpty.classList.remove('hidden');
+      knowledgeBlock.classList.add('hidden');
+      knowledgeTableBody.innerHTML = '';
+      return;
+    }
+    knowledgeEmpty.classList.add('hidden');
+    knowledgeBlock.classList.remove('hidden');
+    knowledgeTableBody.innerHTML = '';
+    list.forEach(function (row) {
+      var k = row.data;
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="text-subtle text-sm">' + escapeHtml(row.industryName) + '</td>' +
+        '<td class="text-obsidian">' + escapeHtml(k.standardQ || '') + '</td>' +
+        '<td class="text-subtle">' + escapeHtml((k.similarQs || []).join('；')) + '</td>' +
+        '<td class="text-charcoal max-w-xs truncate">' + escapeHtml(k.answer || '') + '</td>' +
+        '<td class="text-right"><button type="button" class="btn-link k-edit mr-2" data-id="' + k.id + '" data-iid="' + row.industryId + '">编辑</button><button type="button" class="btn-link btn-link-danger k-delete" data-id="' + k.id + '" data-iid="' + row.industryId + '">删除</button></td>';
+      knowledgeTableBody.appendChild(tr);
+    });
+    knowledgeTableBody.querySelectorAll('.k-edit').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var iid = btn.dataset.iid || currentIndustryId;
+        if (iid) { currentIndustryId = iid; industrySelect.value = iid; btnAddKnowledge.disabled = false; }
+        openKnowledgeModal(btn.dataset.id);
+      });
+    });
+    knowledgeTableBody.querySelectorAll('.k-delete').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var iid = btn.dataset.iid || currentIndustryId;
+        Confirm.show('确定删除这条知识？', function () {
+          MockStore.deleteIndustryKnowledge(iid, btn.dataset.id);
+          renderKnowledge();
+          Toast.show('知识删除成功', 'success');
+        });
+      });
+    });
+  }
+
+  function openKnowledgeModal(id) {
+    editingKnowledgeId = id || null;
+    knowledgeModalTitle.textContent = id ? '编辑知识' : '新增知识';
+    if (id) {
+      knowledgeFormIndustryWrap.style.display = 'none';
+      var list = MockStore.getIndustryKnowledge(currentIndustryId);
+      var k = list.find(function (x) { return x.id === id; });
+      if (k) {
+        formStandardQ.value = k.standardQ || '';
+        formSimilarQ.value = (k.similarQs || []).join('\n');
+        formAnswer.value = k.answer || '';
+      }
+    } else {
+      knowledgeFormIndustryWrap.style.display = 'block';
+      fillKnowledgeFormIndustry();
+      knowledgeFormIndustry.value = '';
+      formStandardQ.value = '';
+      formSimilarQ.value = '';
+      formAnswer.value = '';
+    }
+    knowledgeModal.style.display = 'flex';
+  }
+
+  function closeKnowledgeModal() {
+    knowledgeModal.style.display = 'none';
+    editingKnowledgeId = null;
+  }
+
+  btnAddKnowledge.addEventListener('click', function () {
+    openKnowledgeModal();
+  });
+  knowledgeModalCancel.addEventListener('click', closeKnowledgeModal);
+  knowledgeModalSubmit.addEventListener('click', function () {
+    var standardQ = formStandardQ.value.trim();
+    var similarQs = formSimilarQ.value.trim().split(/\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var answer = formAnswer.value.trim();
+    if (!standardQ) { Toast.show('请填写标准问', 'error'); return; }
+    var industryId = editingKnowledgeId ? currentIndustryId : (knowledgeFormIndustry.value || '').trim();
+    if (!industryId) { Toast.show('请选择要添加知识的行业', 'error'); return; }
+    if (editingKnowledgeId) {
+      MockStore.updateIndustryKnowledge(industryId, editingKnowledgeId, { standardQ: standardQ, similarQs: similarQs, answer: answer });
+      Toast.show('知识更新成功', 'success');
+    } else {
+      MockStore.addIndustryKnowledge(industryId, { standardQ: standardQ, similarQs: similarQs, answer: answer });
+      Toast.show('知识创建成功', 'success');
+    }
+    closeKnowledgeModal();
+    renderKnowledge();
+  });
+  knowledgeModal.addEventListener('click', function (e) { if (e.target === knowledgeModal) closeKnowledgeModal(); });
+
+  renderIndustries();
+  fillIndustrySelect();
+  renderKnowledge();
+})();
+-->
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%23111' width='32' height='32' rx='4'/><text x='16' y='22' font-size='16' text-anchor='middle' fill='%23fff' font-family='system-ui'>知</text></svg>" />
+  <title>商家知识 - 知识配置平台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/common.css" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-canvas text-slate-600 font-sans antialiased min-h-screen selection:bg-emerald-900 selection:text-white">
+  <div id="app" class="flex min-h-screen">
+    <aside class="app-sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon flex items-center justify-center">
+          <span class="iconify" data-icon="lucide:book-open" data-width="20" data-height="20"></span>
+        </div>
+        <span class="sidebar-logo-text">知识配置平台</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item"><span class="iconify nav-item-icon" data-icon="lucide:layout-dashboard" data-width="18" data-height="18"></span>概览</a>
+        <a href="merchant.html" class="nav-item router-active"><span class="iconify nav-item-icon" data-icon="lucide:store" data-width="18" data-height="18"></span>商家知识</a>
+        <a href="merchant-set.html" class="nav-item"><span class="iconify nav-item-icon" data-icon="lucide:layers" data-width="18" data-height="18"></span>商家集合知识</a>
+        <a href="industry.html" class="nav-item"><span class="iconify nav-item-icon" data-icon="lucide:briefcase" data-width="18" data-height="18"></span>行业知识</a>
+        <a href="global.html" class="nav-item"><span class="iconify nav-item-icon" data-icon="lucide:globe" data-width="18" data-height="18"></span>通用知识</a>
+      </nav>
+    </aside>
+    <main class="flex-1 flex flex-col min-w-0">
+      <header class="app-header border-b border-slate-200">
+        <span class="app-header-title text-slate-700 font-medium">知识配置平台</span>
+      </header>
+      <div class="flex-1 p-6 md:p-8 space-y-10">
+        <!-- 商家列表 -->
+        <section>
+          <div class="flex flex-wrap items-end justify-between gap-4 mb-4">
+            <h2 class="section-title tracking-tight text-slate-900">商家列表</h2>
+            <button type="button" id="btnAddMerchant" class="btn-primary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:plus" data-width="16" data-height="16"></span>新增商家</button>
+          </div>
+          <div class="premium-card overflow-hidden rounded-xl border border-slate-100 shadow-sm">
+            <div class="table-wrap">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th class="w-40">商家 ID</th>
+                    <th>商家名称</th>
+                    <th class="text-right w-40">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="merchantTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 商家知识 -->
+        <section>
+          <h2 class="section-title tracking-tight text-slate-900 mb-4">商家知识</h2>
+          <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div class="flex items-center gap-2">
+              <label class="text-sm font-medium text-slate-600 whitespace-nowrap">筛选</label>
+              <select id="merchantSelect" class="input-common select-common w-52" title="筛选列表数据">
+                <option value="">全部商家</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" id="btnAddKnowledge" class="btn-primary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:plus" data-width="16" data-height="16"></span>新增知识</button>
+              <button type="button" id="btnBatchImport" class="btn-secondary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:upload" data-width="16" data-height="16"></span>批量导入</button>
+            </div>
+          </div>
+          <div id="knowledgeEmpty" class="premium-card empty-state hidden rounded-xl border border-slate-100">暂无知识数据。</div>
+          <div id="knowledgeBlock">
+            <div class="premium-card overflow-hidden rounded-xl border border-slate-100 shadow-sm">
+              <div class="table-wrap">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th class="w-32">商家</th>
+                      <th>标准问</th>
+                      <th>相似问</th>
+                      <th>答案</th>
+                      <th class="text-right w-28">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="knowledgeTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- 商家编辑弹层 -->
+  <div id="merchantModal" class="modal-overlay" style="display: none;">
+    <div class="modal-box premium-card max-w-md rounded-2xl border border-slate-200">
+      <h3 id="merchantModalTitle" class="modal-title text-slate-900">新增商家</h3>
+      <div class="space-y-4">
+        <div id="merchantFormIdWrap">
+          <label class="block text-sm font-medium text-slate-700 mb-1">商家 ID</label>
+          <input type="text" id="merchantFormId" class="input-common rounded-xl" placeholder="留空则自动生成" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">商家名称</label>
+          <input type="text" id="merchantFormName" class="input-common rounded-xl" placeholder="输入商家名称" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button type="button" id="merchantModalCancel" class="btn-secondary">取消</button>
+        <button type="button" id="merchantModalSubmit" class="btn-primary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:check" data-width="16" data-height="16"></span>保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 知识编辑弹层 -->
+  <div id="knowledgeModal" class="modal-overlay" style="display: none;">
+    <div class="modal-box premium-card max-w-lg rounded-2xl border border-slate-200">
+      <h3 id="knowledgeModalTitle" class="modal-title text-slate-900">新增知识</h3>
+      <div class="space-y-4">
+        <div id="knowledgeFormMerchantWrap">
+          <label class="block text-sm font-medium text-slate-700 mb-1">选择商家</label>
+          <select id="knowledgeFormMerchant" class="input-common select-common">
+            <option value="">请选择要添加知识的商家</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">标准问</label>
+          <input type="text" id="formStandardQ" class="input-common rounded-xl" placeholder="输入标准问题" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">相似问（多行，一行一个）</label>
+          <textarea id="formSimilarQ" class="input-common min-h-[80px] rounded-xl" placeholder="每行一个相似问法"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">答案</label>
+          <textarea id="formAnswer" class="input-common min-h-[100px] rounded-xl" placeholder="输入答案内容"></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button type="button" id="knowledgeModalCancel" class="btn-secondary">取消</button>
+        <button type="button" id="knowledgeModalSubmit" class="btn-primary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:check" data-width="16" data-height="16"></span>保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 批量导入弹层 -->
+  <div id="batchImportModal" class="modal-overlay" style="display: none;">
+    <div class="modal-box premium-card max-w-3xl rounded-2xl border border-slate-200">
+      <h3 class="modal-title text-slate-900">批量导入商家知识</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">选择商家 <span class="text-red-500">*</span></label>
+          <select id="importMerchantSelect" class="input-common select-common">
+            <option value="">请选择要导入知识的商家</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">导入方式</label>
+          <div class="flex gap-2">
+            <button type="button" id="importTabFile" class="import-tab-btn import-tab-active">上传文件</button>
+            <button type="button" id="importTabText" class="import-tab-btn">粘贴文本</button>
+          </div>
+        </div>
+        <div id="importFilePanel">
+          <label class="block text-sm font-medium text-slate-700 mb-1">选择文件（支持 CSV / JSON）</label>
+          <div class="import-file-zone" id="importFileZone">
+            <span class="iconify" data-icon="lucide:upload-cloud" data-width="32" data-height="32" style="color: var(--slate-400);"></span>
+            <span class="text-sm text-slate-500 mt-2">点击或拖拽文件到此处</span>
+            <span class="text-xs text-slate-400 mt-1">CSV 格式：标准问,相似问,答案；JSON 格式：数组对象</span>
+            <input type="file" id="importFileInput" accept=".csv,.json" style="display: none;" />
+          </div>
+          <div id="importFileName" class="text-sm text-slate-600 mt-2 hidden"></div>
+        </div>
+        <div id="importTextPanel" style="display: none;">
+          <label class="block text-sm font-medium text-slate-700 mb-1">粘贴问答内容</label>
+          <textarea id="importTextArea" class="input-common min-h-[160px] rounded-xl font-mono text-xs" placeholder="每行一条，格式：标准问|相似问1;相似问2|答案&#10;示例：配送范围是多少|送货范围;能配送吗|提供门店周边3公里范围内的配送服务"></textarea>
+          <span class="text-xs text-slate-400 mt-1 block">格式：标准问|相似问(分号分隔)|答案，每行一条</span>
+        </div>
+        <button type="button" id="btnParseImport" class="btn-secondary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:search" data-width="16" data-height="16"></span>解析并预览</button>
+      </div>
+
+      <div id="importPreviewSection" style="display: none;" class="mt-6">
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="text-sm font-semibold text-slate-900">预览导入内容</h4>
+          <div id="importStats" class="flex items-center gap-3 text-xs"></div>
+        </div>
+        <div class="import-preview-table-wrap">
+          <table class="w-full text-sm">
+            <thead>
+              <tr>
+                <th class="w-10"><input type="checkbox" id="importSelectAll" checked /></th>
+                <th>标准问</th>
+                <th>相似问</th>
+                <th>答案</th>
+                <th class="w-24">状态</th>
+              </tr>
+            </thead>
+            <tbody id="importPreviewBody"></tbody>
+          </table>
+        </div>
+        <div class="flex justify-between items-center mt-4">
+          <span id="importSelectedCount" class="text-sm text-slate-600"></span>
+          <div class="flex gap-3">
+            <button type="button" id="importModalCancel" class="btn-secondary">取消</button>
+            <button type="button" id="importModalSubmit" class="btn-primary inline-flex items-center gap-2"><span class="iconify" data-icon="lucide:check" data-width="16" data-height="16"></span>确认导入</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="importNoPreview" class="mt-4">
+        <div class="flex justify-end gap-3">
+          <button type="button" id="importModalCancelNoPreview" class="btn-secondary">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/mock.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/pages/merchant.js"></script>
+</body>
+</html>
