@@ -306,8 +306,10 @@
           '<td class="text-obsidian">' + Utils.escapeHtml(k.standardQ || '') + '</td>' +
           '<td class="text-subtle">' + Utils.escapeHtml((k.similarQs || []).join('；')) + '</td>' +
           '<td class="text-charcoal max-w-xs truncate">' + Utils.escapeHtml(k.answer || '') + '</td>' +
+          '<td class="whitespace-nowrap">' + HistoryPanel.latestCell(k.id) + '</td>' +
           '<td class="text-right">' +
             '<button type="button" class="btn-link k-edit mr-2" data-id="' + k.id + '" data-iid="' + row.industryId + '">编辑</button>' +
+            '<button type="button" class="btn-link k-history mr-2" data-id="' + k.id + '" data-iid="' + row.industryId + '">变更记录</button>' +
             '<button type="button" class="btn-link btn-link-danger k-delete" data-id="' + k.id + '" data-iid="' + row.industryId + '">删除</button>' +
           '</td>';
       }, this.bindTableEvents.bind(this));
@@ -323,6 +325,16 @@
             elements.industrySelect.value = iid;
           }
           self.openModal(btn.dataset.id);
+        });
+      });
+      tbody.querySelectorAll('.k-history').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var iid = btn.dataset.iid || state.currentIndustryId;
+          if (iid) {
+            state.currentIndustryId = iid;
+            elements.industrySelect.value = iid;
+          }
+          HistoryPanel.open(btn.dataset.id, { onRestored: function () { self.render(); } });
         });
       });
       tbody.querySelectorAll('.k-delete').forEach(function (btn) {

@@ -218,8 +218,10 @@
           '<td class="text-obsidian">' + Utils.escapeHtml(k.standardQ || '') + '</td>' +
           '<td class="text-subtle">' + Utils.escapeHtml((k.similarQs || []).join('；')) + '</td>' +
           '<td class="text-charcoal max-w-xs truncate">' + Utils.escapeHtml(k.answer || '') + '</td>' +
+          '<td class="whitespace-nowrap">' + HistoryPanel.latestCell(k.id) + '</td>' +
           '<td class="text-right">' +
             '<button type="button" class="btn-link edit-btn mr-2" data-id="' + k.id + '" data-mid="' + row.merchantId + '">编辑</button>' +
+            '<button type="button" class="btn-link history-btn mr-2" data-id="' + k.id + '" data-mid="' + row.merchantId + '">变更记录</button>' +
             '<button type="button" class="btn-link btn-link-danger delete-btn" data-id="' + k.id + '" data-mid="' + row.merchantId + '">删除</button>' +
           '</td>';
       }, this.bindTableEvents.bind(this));
@@ -235,6 +237,16 @@
             elements.merchantSelect.value = mid;
           }
           self.openModal(btn.dataset.id);
+        });
+      });
+      tbody.querySelectorAll('.history-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var mid = btn.dataset.mid || state.currentMerchantId;
+          if (mid) {
+            state.currentMerchantId = mid;
+            elements.merchantSelect.value = mid;
+          }
+          HistoryPanel.open(btn.dataset.id, { onRestored: function () { self.render(); } });
         });
       });
       tbody.querySelectorAll('.delete-btn').forEach(function (btn) {

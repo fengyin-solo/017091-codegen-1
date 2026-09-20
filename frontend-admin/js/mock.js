@@ -28,6 +28,197 @@
   function load(key, fallback) { return StorageUtil.load(key, fallback); }
   function save(key, value) { StorageUtil.save(key, value); }
 
+  // ====================== 知识变更记录模块 ======================
+  // 每条知识的每一次改动（新增/修改/恢复/删除）都生成一条版本快照，
+  // 结构：{ knowledgeId, scope: {type, ownerId, ownerName}, versions: [ {action, time, operator, snapshot} ] }
+  // snapshot 保存当时的完整内容（standardQ / similarQs / answer），
+  // action=create 时 after 即初始内容，update/restore 时 before/after 均留存。
+  var HISTORY_KEY = 'knowledgeHistory';
+  var HISTORY_SEEDED_KEY = 'knowledgeHistorySeeded';
+  var HISTORY_SEED_TIME = 0; // 内置初始数据的版本时间：显示为「初始数据」而非 1970
+
+  // scope 定义：type 为 merchant / merchantSet / industry / global
+  var HISTORY_SCOPES = {
+    merchant: {
+      readAll: function () {
+        var all = load('merchantKnowledge', defaultMerchantKnowledge);
+        var result = {};
+        store.getMerchants().forEach(function (m) {
+          result[m.id] = { ownerName: m.name + '（' + m.id + '）', list: all[m.id] || [] };
+        });
+        return result;
+      }
+    },
+    merchantSet: {
+      readAll: function () {
+        var all = load('merchantSetKnowledge', defaultMerchantSetKnowledge);
+        var result = {};
+        store.getMerchantSets().forEach(function (s) {
+          result[s.id] = { ownerName: s.name, list: all[s.id] || [] };
+        });
+        return result;
+      }
+    },
+    industry: {
+      readAll: function () {
+        var all = load('industryKnowledge', defaultIndustryKnowledge);
+        var result = {};
+        store.getIndustries().forEach(function (i) {
+          result[i.id] = { ownerName: i.name, list: all[i.id] || [] };
+        });
+        return result;
+      }
+    },
+    global: {
+      readAll: function () {
+        return { '': { ownerName: '通用知识', list: load('globalKnowledge', defaultGlobalKnowledge) } };
+      }
+    }
+  };
+
+  function knowledgeSnapshot(k) {
+    return {
+      standardQ: k ? (k.standardQ || '') : '',
+      similarQs: (k && Array.isArray(k.similarQs)) ? k.similarQs.slice() : [],
+      answer: k ? (k.answer || '') : ''
+    };
+  }
+
+  function currentOperator() {
+    var u = null;
+    try { u = AuthModule.getCurrentUser(); } catch (_) { u = null; }
+    return { username: u ? u.username : '', name: u ? (u.name || u.username) : '未知用户' };
+  }
+
+  function sameSnapshot(a, b) {
+    a = a || {};
+    b = b || {};
+    var aq = (a.similarQs || []).join('');
+    var bq = (b.similarQs || []).join('');
+    return a.standardQ === b.standardQ && a.answer === b.answer && aq === bq;
+  }
+
+  var HistoryModule = {
+    _all: function () {
+      return load(HISTORY_KEY, {});
+    },
+    _write: function (all) {
+      save(HISTORY_KEY, all);
+    },
+
+    /** 获取某条知识的全部版本记录（按时间正序，version 从 1 起） */
+    get: function (knowledgeId) {
+      var all = this._all();
+      return all[knowledgeId] || null;
+    },
+
+    /** 追加一条版本记录；返回新记录 */
+    add: function (knowledgeId, scope, action, after, before, extra) {
+      var all = this._all();
+      var entry = all[knowledgeId] || { knowledgeId: knowledgeId, scope: scope, versions: [] };
+      var operator = currentOperator();
+      var record = {
+        action: action, // create | update | restore | delete
+        time: (extra && extra.time != null) ? extra.time : Date.now(),
+        operator: extra && extra.operator ? extra.operator : operator.name,
+        operatorUsername: extra && extra.operatorUsername != null ? extra.operatorUsername : operator.username,
+        after: knowledgeSnapshot(after),
+        before: before ? knowledgeSnapshot(before) : null
+      };
+      if (extra && extra.restoreFromVersion != null) {
+        record.restoreFromVersion = extra.restoreFromVersion;
+      }
+      entry.scope = scope || entry.scope;
+      entry.versions.push(record);
+      all[knowledgeId] = entry;
+      this._write(all);
+      return record;
+    },
+
+    /**
+     * 把某条知识恢复到指定版本当时的内容
+     * 只回写这一条，其它条目与编号均不受影响；恢复本身也记录一条新版本
+     * @param {string} knowledgeId
+     * @param {number} versionIndex 版本序号（从 1 起）
+     * @returns {{success:boolean, message?:string}}
+     */
+    restore: function (knowledgeId, versionIndex) {
+      var entry = this.get(knowledgeId);
+      if (!entry) return { success: false, message: '未找到变更记录' };
+      var target = entry.versions[versionIndex - 1];
+      if (!target) return { success: false, message: '未找到指定版本' };
+      var content = knowledgeSnapshot(target.after);
+      var scopeDef = HISTORY_SCOPES[entry.scope.type];
+      if (!scopeDef) return { success: false, message: '未知知识类型' };
+
+      var before = null;
+      if (entry.scope.type === 'global') {
+        var gList = store.getGlobalKnowledge().slice();
+        var gIdx = -1;
+        gList.forEach(function (k, i) { if (k.id === knowledgeId) gIdx = i; });
+        if (gIdx === -1) return { success: false, message: '该知识已不存在，无法恢复（请联系管理员重新创建）' };
+        before = gList[gIdx];
+        gList[gIdx] = Object.assign({}, gList[gIdx], content, { id: knowledgeId });
+        store.setGlobalKnowledge(gList);
+      } else {
+        var ownerId = entry.scope.ownerId;
+        var getFn = store['get' + scopeMethodName(entry.scope.type, 'Knowledge')];
+        var setFn = store['set' + scopeMethodName(entry.scope.type, 'Knowledge')];
+        var list = (getFn.call(store, ownerId) || []).slice();
+        var idx = -1;
+        list.forEach(function (k, i) { if (k.id === knowledgeId) idx = i; });
+        if (idx === -1) {
+          // 条目当前已删除：作为新条目加回，编号保持历史编号不变
+          list.push(Object.assign({ id: knowledgeId }, content));
+        } else {
+          before = list[idx];
+          list[idx] = Object.assign({}, list[idx], content, { id: knowledgeId });
+        }
+        setFn.call(store, ownerId, list);
+      }
+
+      this.add(knowledgeId, entry.scope, 'restore', content, before, { restoreFromVersion: versionIndex });
+      return { success: true };
+    },
+
+    /**
+     * 首次使用时为内置初始知识补齐「初始内容」版本（只执行一次，幂等）
+     */
+    seedInitial: function () {
+      if (load(HISTORY_SEEDED_KEY, false)) return;
+      var all = this._all();
+      Object.keys(HISTORY_SCOPES).forEach(function (type) {
+        var owners = HISTORY_SCOPES[type].readAll();
+        Object.keys(owners).forEach(function (ownerId) {
+          var owner = owners[ownerId];
+          (owner.list || []).forEach(function (k) {
+            if (all[k.id]) return;
+            all[k.id] = {
+              knowledgeId: k.id,
+              scope: { type: type, ownerId: ownerId, ownerName: owner.ownerName },
+              versions: [{
+                action: 'create',
+                time: HISTORY_SEED_TIME,
+                operator: '初始数据',
+                operatorUsername: '',
+                after: knowledgeSnapshot(k),
+                before: null
+              }]
+            };
+          });
+        });
+      });
+      this._write(all);
+      save(HISTORY_SEEDED_KEY, true);
+    }
+  };
+
+  // restore 中按 scope type 拼 store 方法名
+  function scopeMethodName(type, suffix) {
+    var map = { merchant: 'Merchant', merchantSet: 'MerchantSet', industry: 'Industry' };
+    return map[type] + suffix;
+  }
+
   // ====================== 用户认证模块 ======================
   var defaultUsers = [
     { username: 'user', password: '123456', name: '管理员' }
@@ -297,8 +488,8 @@
       var finalId = (id && String(id).trim()) ? String(id).trim() : nextId('M', list);
       list.push({ id: finalId, name: name || '新商家' });
       save('merchants', list);
-      var all = load('merchantKnowledge', {});
-      all[finalId] = [];
+      var all = load('merchantKnowledge', defaultMerchantKnowledge);
+      all[finalId] = all[finalId] || [];
       save('merchantKnowledge', all);
       return list[list.length - 1];
     },
@@ -313,7 +504,7 @@
     deleteMerchant: function (id) {
       var list = store.getMerchants().filter(function (m) { return m.id !== id; });
       save('merchants', list);
-      var all = load('merchantKnowledge', {});
+      var all = load('merchantKnowledge', defaultMerchantKnowledge);
       delete all[id];
       save('merchantKnowledge', all);
       return list;
@@ -333,18 +524,43 @@
       item.id = item.id || nextId('k');
       list.push(item);
       store.setMerchantKnowledge(merchantId, list);
+      var m = store.getMerchants().find(function (x) { return x.id === merchantId; });
+      HistoryModule.add(item.id, {
+        type: 'merchant',
+        ownerId: merchantId,
+        ownerName: m ? m.name + '（' + m.id + '）' : merchantId
+      }, 'create', item, null);
       return item;
     },
     updateMerchantKnowledge: function (merchantId, id, item) {
+      var old = store.getMerchantKnowledge(merchantId).find(function (k) { return k.id === id; }) || null;
       var list = store.getMerchantKnowledge(merchantId).map(function (k) {
         return k.id === id ? Object.assign({}, k, item, { id: id }) : k;
       });
       store.setMerchantKnowledge(merchantId, list);
+      var updated = list.find(function (k) { return k.id === id; }) || null;
+      if (updated && (!old || !sameSnapshot(old, updated))) {
+        var m = store.getMerchants().find(function (x) { return x.id === merchantId; });
+        HistoryModule.add(id, {
+          type: 'merchant',
+          ownerId: merchantId,
+          ownerName: m ? m.name + '（' + m.id + '）' : merchantId
+        }, 'update', updated, old);
+      }
       return list;
     },
     deleteMerchantKnowledge: function (merchantId, id) {
+      var old = store.getMerchantKnowledge(merchantId).find(function (k) { return k.id === id; }) || null;
       var list = store.getMerchantKnowledge(merchantId).filter(function (k) { return k.id !== id; });
       store.setMerchantKnowledge(merchantId, list);
+      if (old) {
+        var m = store.getMerchants().find(function (x) { return x.id === merchantId; });
+        HistoryModule.add(id, {
+          type: 'merchant',
+          ownerId: merchantId,
+          ownerName: m ? m.name + '（' + m.id + '）' : merchantId
+        }, 'delete', old, old);
+      }
       return list;
     },
     checkMerchantKnowledgeDuplicates: function (merchantId, items) {
@@ -365,10 +581,17 @@
     batchAddMerchantKnowledge: function (merchantId, items) {
       var list = store.getMerchantKnowledge(merchantId).slice();
       var added = [];
+      var m = store.getMerchants().find(function (x) { return x.id === merchantId; });
+      var scope = {
+        type: 'merchant',
+        ownerId: merchantId,
+        ownerName: m ? m.name + '（' + m.id + '）' : merchantId
+      };
       items.forEach(function (item) {
         item.id = item.id || nextId('k');
         list.push(item);
         added.push(item);
+        HistoryModule.add(item.id, scope, 'create', item, null);
       });
       store.setMerchantKnowledge(merchantId, list);
       return added;
@@ -386,8 +609,8 @@
       var id = nextId('SET', sets);
       sets.push({ id: id, name: name, merchantIds: merchantIds || [] });
       save('merchantSets', sets);
-      var all = load('merchantSetKnowledge', {});
-      all[id] = [];
+      var all = load('merchantSetKnowledge', defaultMerchantSetKnowledge);
+      all[id] = all[id] || [];
       save('merchantSetKnowledge', all);
       return sets[sets.length - 1];
     },
@@ -402,7 +625,7 @@
     deleteMerchantSet: function (id) {
       var sets = store.getMerchantSets().filter(function (s) { return s.id !== id; });
       save('merchantSets', sets);
-      var all = load('merchantSetKnowledge', {});
+      var all = load('merchantSetKnowledge', defaultMerchantSetKnowledge);
       delete all[id];
       save('merchantSetKnowledge', all);
       return sets;
@@ -422,18 +645,43 @@
       item.id = item.id || nextId('k');
       list.push(item);
       store.setMerchantSetKnowledge(setId, list);
+      var s = store.getMerchantSets().find(function (x) { return x.id === setId; });
+      HistoryModule.add(item.id, {
+        type: 'merchantSet',
+        ownerId: setId,
+        ownerName: s ? s.name : setId
+      }, 'create', item, null);
       return item;
     },
     updateMerchantSetKnowledge: function (setId, id, item) {
+      var old = store.getMerchantSetKnowledge(setId).find(function (k) { return k.id === id; }) || null;
       var list = store.getMerchantSetKnowledge(setId).map(function (k) {
         return k.id === id ? Object.assign({}, k, item, { id: id }) : k;
       });
       store.setMerchantSetKnowledge(setId, list);
+      var updated = list.find(function (k) { return k.id === id; }) || null;
+      if (updated && (!old || !sameSnapshot(old, updated))) {
+        var s = store.getMerchantSets().find(function (x) { return x.id === setId; });
+        HistoryModule.add(id, {
+          type: 'merchantSet',
+          ownerId: setId,
+          ownerName: s ? s.name : setId
+        }, 'update', updated, old);
+      }
       return list;
     },
     deleteMerchantSetKnowledge: function (setId, id) {
+      var old = store.getMerchantSetKnowledge(setId).find(function (k) { return k.id === id; }) || null;
       var list = store.getMerchantSetKnowledge(setId).filter(function (k) { return k.id !== id; });
       store.setMerchantSetKnowledge(setId, list);
+      if (old) {
+        var s = store.getMerchantSets().find(function (x) { return x.id === setId; });
+        HistoryModule.add(id, {
+          type: 'merchantSet',
+          ownerId: setId,
+          ownerName: s ? s.name : setId
+        }, 'delete', old, old);
+      }
       return list;
     },
 
@@ -451,8 +699,8 @@
       var name = (level2 == null || level2 === '') ? level1 : (level1 + ' / ' + level2);
       list.push({ id: id, level1: level1, level2: level2 || '', name: name });
       save('industries', list);
-      var all = load('industryKnowledge', {});
-      all[id] = [];
+      var all = load('industryKnowledge', defaultIndustryKnowledge);
+      all[id] = all[id] || [];
       save('industryKnowledge', all);
       return list[list.length - 1];
     },
@@ -468,7 +716,7 @@
     deleteIndustry: function (id) {
       var list = store.getIndustries().filter(function (i) { return i.id !== id; });
       save('industries', list);
-      var all = load('industryKnowledge', {});
+      var all = load('industryKnowledge', defaultIndustryKnowledge);
       delete all[id];
       save('industryKnowledge', all);
       return list;
@@ -488,18 +736,43 @@
       item.id = item.id || nextId('k');
       list.push(item);
       store.setIndustryKnowledge(industryId, list);
+      var ind = store.getIndustries().find(function (x) { return x.id === industryId; });
+      HistoryModule.add(item.id, {
+        type: 'industry',
+        ownerId: industryId,
+        ownerName: ind ? ind.name : industryId
+      }, 'create', item, null);
       return item;
     },
     updateIndustryKnowledge: function (industryId, id, item) {
+      var old = store.getIndustryKnowledge(industryId).find(function (k) { return k.id === id; }) || null;
       var list = store.getIndustryKnowledge(industryId).map(function (k) {
         return k.id === id ? Object.assign({}, k, item, { id: id }) : k;
       });
       store.setIndustryKnowledge(industryId, list);
+      var updated = list.find(function (k) { return k.id === id; }) || null;
+      if (updated && (!old || !sameSnapshot(old, updated))) {
+        var ind = store.getIndustries().find(function (x) { return x.id === industryId; });
+        HistoryModule.add(id, {
+          type: 'industry',
+          ownerId: industryId,
+          ownerName: ind ? ind.name : industryId
+        }, 'update', updated, old);
+      }
       return list;
     },
     deleteIndustryKnowledge: function (industryId, id) {
+      var old = store.getIndustryKnowledge(industryId).find(function (k) { return k.id === id; }) || null;
       var list = store.getIndustryKnowledge(industryId).filter(function (k) { return k.id !== id; });
       store.setIndustryKnowledge(industryId, list);
+      if (old) {
+        var ind = store.getIndustries().find(function (x) { return x.id === industryId; });
+        HistoryModule.add(id, {
+          type: 'industry',
+          ownerId: industryId,
+          ownerName: ind ? ind.name : industryId
+        }, 'delete', old, old);
+      }
       return list;
     },
 
@@ -515,18 +788,40 @@
       item.id = item.id || nextId('k');
       list.push(item);
       save('globalKnowledge', list);
+      HistoryModule.add(item.id, {
+        type: 'global',
+        ownerId: '',
+        ownerName: '通用知识'
+      }, 'create', item, null);
       return item;
     },
     updateGlobalKnowledge: function (id, item) {
+      var old = store.getGlobalKnowledge().find(function (k) { return k.id === id; }) || null;
       var list = store.getGlobalKnowledge().map(function (k) {
         return k.id === id ? Object.assign({}, k, item, { id: id }) : k;
       });
       save('globalKnowledge', list);
+      var updated = list.find(function (k) { return k.id === id; }) || null;
+      if (updated && (!old || !sameSnapshot(old, updated))) {
+        HistoryModule.add(id, {
+          type: 'global',
+          ownerId: '',
+          ownerName: '通用知识'
+        }, 'update', updated, old);
+      }
       return list;
     },
     deleteGlobalKnowledge: function (id) {
+      var old = store.getGlobalKnowledge().find(function (k) { return k.id === id; }) || null;
       var list = store.getGlobalKnowledge().filter(function (k) { return k.id !== id; });
       save('globalKnowledge', list);
+      if (old) {
+        HistoryModule.add(id, {
+          type: 'global',
+          ownerId: '',
+          ownerName: '通用知识'
+        }, 'delete', old, old);
+      }
       return list;
     },
 
@@ -584,11 +879,16 @@
   };
 
   // ====================== 导出模块 ======================
-  // 将 AuthModule 挂载到 store 上
+  // 将 AuthModule / HistoryModule 挂载到 store 上
   store.Auth = AuthModule;
+  store.History = HistoryModule;
+
+  // 为内置初始知识补齐「初始内容」版本（仅首次，幂等）
+  HistoryModule.seedInitial();
 
   // 导出到全局
   global.MockStore = store;
   global.AuthModule = AuthModule;
   global.StorageUtil = StorageUtil;
+  global.HistoryStore = HistoryModule;
 })(typeof window !== 'undefined' ? window : this);

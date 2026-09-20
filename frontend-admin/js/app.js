@@ -76,8 +76,44 @@
           fn.apply(context, args);
         }, delay);
       };
+    },
+
+    /**
+     * 两位补零
+     * @param {number} n
+     * @returns {string}
+     */
+    pad2: function (n) {
+      return n < 10 ? '0' + n : '' + n;
+    },
+
+    /**
+     * 格式化为 YYYY-MM-DD HH:mm
+     * @param {number} ts 时间戳
+     * @returns {string}
+     */
+    formatDateTime: function (ts) {
+      if (!ts) return '';
+      var d = new Date(ts);
+      return d.getFullYear() + '-' + Utils.pad2(d.getMonth() + 1) + '-' + Utils.pad2(d.getDate()) +
+        ' ' + Utils.pad2(d.getHours()) + ':' + Utils.pad2(d.getMinutes());
+    },
+
+    /**
+     * 格式化为 MM-DD HH:mm（表格紧凑展示，完整时间放 title）
+     * @param {number} ts 时间戳
+     * @returns {string}
+     */
+    formatDateTimeShort: function (ts) {
+      if (!ts) return '';
+      var d = new Date(ts);
+      return Utils.pad2(d.getMonth() + 1) + '-' + Utils.pad2(d.getDate()) +
+        ' ' + Utils.pad2(d.getHours()) + ':' + Utils.pad2(d.getMinutes());
     }
   };
+
+  // Utils 内部引用（formatDateTime 中使用 pad2）
+  var Utils = App.Utils;
 
   // ====================== 表格渲染模块 ======================
   App.Table = {
