@@ -9,6 +9,17 @@
   var Table = App.Table;
   var Modal = App.Modal;
   var Select = App.Select;
+  var HistoryUI = App.KnowledgeHistoryUI;
+
+  function latestHistoryHtml(k) {
+    var latest = MockStore.KnowledgeHistory.getLatest(k.id);
+    if (!latest) return '<span class="text-slate-400">-</span>';
+    return '<div class="history-latest">' +
+      '<span class="text-xs text-slate-500">' + Utils.escapeHtml(latest.actionLabel || '变更') + '</span>' +
+      '<span class="text-xs text-slate-600">' + Utils.escapeHtml(HistoryUI.formatTime(latest.at)) + '</span>' +
+      '<span class="text-xs text-slate-500">' + Utils.escapeHtml((latest.operator && (latest.operator.name || latest.operator.username)) || '未知用户') + '</span>' +
+    '</div>';
+  }
 
   // ====================== 页面状态 ======================
   var state = {
@@ -218,8 +229,10 @@
           '<td class="text-obsidian">' + Utils.escapeHtml(k.standardQ || '') + '</td>' +
           '<td class="text-subtle">' + Utils.escapeHtml((k.similarQs || []).join('；')) + '</td>' +
           '<td class="text-charcoal max-w-xs truncate">' + Utils.escapeHtml(k.answer || '') + '</td>' +
-          '<td class="text-right">' +
+          '<td class="text-subtle w-36">' + latestHistoryHtml(k) + '</td>' +
+          '<td class="text-right whitespace-nowrap">' +
             '<button type="button" class="btn-link edit-btn mr-2" data-id="' + k.id + '" data-mid="' + row.merchantId + '">编辑</button>' +
+            '<button type="button" class="btn-link k-history mr-2" data-id="' + k.id + '" data-mid="' + row.merchantId + '">记录</button>' +
             '<button type="button" class="btn-link btn-link-danger delete-btn" data-id="' + k.id + '" data-mid="' + row.merchantId + '">删除</button>' +
           '</td>';
       }, this.bindTableEvents.bind(this));
@@ -235,6 +248,21 @@
             elements.merchantSelect.value = mid;
           }
           self.openModal(btn.dataset.id);
+        });
+      });
+      tbody.querySelectorAll('.k-history').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var mid = btn.dataset.mid || state.currentMerchantId;
+          if (mid) {
+            state.currentMerchantId = mid;
+            elements.merchantSelect.value = mid;
+          }
+          HistoryUI.open({
+            scopeType: 'merchant',
+            scopeId: mid,
+            knowledgeId: btn.dataset.id,
+            onRestored: function () { self.render(); }
+          });
         });
       });
       tbody.querySelectorAll('.delete-btn').forEach(function (btn) {

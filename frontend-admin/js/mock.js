@@ -284,6 +284,195 @@
     return prefix + padded;
   }
 
+  // ====================== 知识变更记录模块 ======================
+  var KNOWLEDGE_FIELDS = ['standardQ', 'similarQs', 'answer'];
+  var historyRecordSeq = 0;
+
+  function cloneValue(value) {
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (_) {
+      return value;
+    }
+  }
+
+  function normalizeKnowledgeItem(item) {
+    var normalized = Object.assign({}, item);
+    normalized.standardQ = normalized.standardQ || '';
+    normalized.answer = normalized.answer || '';
+    normalized.similarQs = Array.isArray(normalized.similarQs)
+      ? normalized.similarQs.map(function (q) { return q == null ? '' : String(q); })
+      : [];
+    return normalized;
+  }
+
+  function knowledgeSnapshot(item) {
+    var snapshot = {};
+    KNOWLEDGE_FIELDS.forEach(function (field) {
+      snapshot[field] = cloneValue(item[field]);
+    });
+    return snapshot;
+  }
+
+  function getHistoryStore() {
+    var data = load('knowledgeHistory', null);
+    if (!data || !data.items) return { version: 1, items: {} };
+    return data;
+  }
+
+  function saveHistoryStore(data) {
+    save('knowledgeHistory', data);
+  }
+
+  function currentOperator() {
+    var user = AuthModule.getCurrentUser();
+    if (user) {
+      return { username: user.username, name: user.name || user.username };
+    }
+    return { username: 'unknown', name: '未知用户' };
+  }
+
+  function nextHistoryRecordId() {
+    historyRecordSeq += 1;
+    return 'h_' + Date.now().toString(36) + '_' + historyRecordSeq.toString(36);
+  }
+
+  function historyActionLabel(action) {
+    if (action === 'create') return '初始创建';
+    if (action === 'initialize') return '初始内容';
+    if (action === 'update') return '内容修改';
+    if (action === 'restore') return '恢复内容';
+    return action || '变更';
+  }
+
+  var KnowledgeHistory = {
+    /** 为变更记录补充条目索引；已存在时不覆盖历史 */
+    ensureEntry: function (knowledgeId, context) {
+      var storeData = getHistoryStore();
+      if (!storeData.items[knowledgeId]) {
+        storeData.items[knowledgeId] = {
+          id: knowledgeId,
+          scope: {
+            type: context.scopeType,
+            id: context.scopeId || ''
+          },
+          records: []
+        };
+        saveHistoryStore(storeData);
+      }
+      return storeData.items[knowledgeId];
+    },
+
+    addRecord: function (knowledgeId, context, action, before, after, sourceRecordId) {
+      var storeData = getHistoryStore();
+      var entry = storeData.items[knowledgeId];
+      if (!entry) {
+        entry = {
+          id: knowledgeId,
+          scope: {
+            type: context.scopeType,
+            id: context.scopeId || ''
+          },
+          records: []
+        };
+        storeData.items[knowledgeId] = entry;
+      }
+
+      var record = {
+        id: nextHistoryRecordId(),
+        action: action,
+        actionLabel: historyActionLabel(action),
+        at: Date.now(),
+        operator: currentOperator(),
+        before: before ? knowledgeSnapshot(before) : null,
+        after: after ? knowledgeSnapshot(after) : null
+      };
+      if (context.at) record.at = context.at;
+      if (context.operator) record.operator = context.operator;
+      if (sourceRecordId) record.sourceRecordId = sourceRecordId;
+      entry.records.push(record);
+      saveHistoryStore(storeData);
+      return cloneValue(record);
+    },
+
+    getEntry: function (knowledgeId) {
+      var storeData = getHistoryStore();
+      var entry = storeData.items[knowledgeId];
+      return entry ? cloneValue(entry) : null;
+    },
+
+    getRecords: function (knowledgeId) {
+      var entry = this.getEntry(knowledgeId);
+      return entry && entry.records ? entry.records : [];
+    },
+
+    getRecord: function (knowledgeId, recordId) {
+      var records = this.getRecords(knowledgeId);
+      var found = null;
+      records.forEach(function (record) {
+        if (record.id === recordId) found = record;
+      });
+      return found;
+    },
+
+    getLatest: function (knowledgeId) {
+      var records = this.getRecords(knowledgeId);
+      return records.length ? records[records.length - 1] : null;
+    }
+  };
+
+  /** 新增知识时生成编号并写入初始内容记录 */
+  function addKnowledgeItem(list, item, context) {
+    var nextList = list.slice();
+    var newItem = normalizeKnowledgeItem(item);
+    newItem.id = newItem.id || nextId('k');
+    nextList.push(newItem);
+    KnowledgeHistory.addRecord(newItem.id, context, 'create', null, newItem);
+    return { list: nextList, item: newItem };
+  }
+
+  /** 编辑知识时仅在三个内容字段实际变化后写入修改记录 */
+  function updateKnowledgeItem(list, id, patch, context, action, sourceRecordId) {
+    var index = -1;
+    var oldItem = null;
+    list.forEach(function (item, i) {
+      if (item.id === id) {
+        index = i;
+        oldItem = item;
+      }
+    });
+    if (index === -1) return { list: list, item: null, changed: false };
+
+    var oldSnapshot = knowledgeSnapshot(oldItem);
+    var targetSnapshot = action === 'restore' && patch
+      ? knowledgeSnapshot(patch)
+      : knowledgeSnapshot(Object.assign({}, oldSnapshot, patch));
+    var merged = Object.assign({}, oldItem, targetSnapshot, { id: id });
+    var newSnapshot = knowledgeSnapshot(merged);
+
+    if (JSON.stringify(oldSnapshot) === JSON.stringify(newSnapshot)) {
+      return { list: list, item: oldItem, changed: false };
+    }
+
+    var nextList = list.slice();
+    nextList[index] = merged;
+    var record = KnowledgeHistory.addRecord(
+      id,
+      context,
+      action || 'update',
+      oldSnapshot,
+      newSnapshot,
+      sourceRecordId
+    );
+    return { list: nextList, item: merged, changed: true, record: record };
+  }
+
+  function restoreKnowledgeItem(list, context, knowledgeId, recordId) {
+    var record = KnowledgeHistory.getRecord(knowledgeId, recordId);
+    if (!record || !record.after) return { error: '未找到要恢复的变更记录' };
+    return updateKnowledgeItem(list, knowledgeId, record.after, context, 'restore', recordId);
+  }
+
   var store = {
     getMerchants: function () {
       return load('merchants', defaultMerchants);
@@ -330,17 +519,22 @@
     },
     addMerchantKnowledge: function (merchantId, item) {
       var list = store.getMerchantKnowledge(merchantId).slice();
-      item.id = item.id || nextId('k');
-      list.push(item);
-      store.setMerchantKnowledge(merchantId, list);
-      return item;
+      var result = addKnowledgeItem(list, item, { scopeType: 'merchant', scopeId: merchantId });
+      store.setMerchantKnowledge(merchantId, result.list);
+      return result.item;
     },
     updateMerchantKnowledge: function (merchantId, id, item) {
-      var list = store.getMerchantKnowledge(merchantId).map(function (k) {
-        return k.id === id ? Object.assign({}, k, item, { id: id }) : k;
-      });
-      store.setMerchantKnowledge(merchantId, list);
-      return list;
+      var list = store.getMerchantKnowledge(merchantId);
+      var result = updateKnowledgeItem(list, id, item, { scopeType: 'merchant', scopeId: merchantId });
+      store.setMerchantKnowledge(merchantId, result.list);
+      return result.list;
+    },
+    restoreMerchantKnowledge: function (merchantId, id, recordId) {
+      var list = store.getMerchantKnowledge(merchantId);
+      var result = restoreKnowledgeItem(list, { scopeType: 'merchant', scopeId: merchantId }, id, recordId);
+      if (result.error) return result;
+      store.setMerchantKnowledge(merchantId, result.list);
+      return result;
     },
     deleteMerchantKnowledge: function (merchantId, id) {
       var list = store.getMerchantKnowledge(merchantId).filter(function (k) { return k.id !== id; });
@@ -365,10 +559,11 @@
     batchAddMerchantKnowledge: function (merchantId, items) {
       var list = store.getMerchantKnowledge(merchantId).slice();
       var added = [];
+      var context = { scopeType: 'merchant', scopeId: merchantId };
       items.forEach(function (item) {
-        item.id = item.id || nextId('k');
-        list.push(item);
-        added.push(item);
+        var result = addKnowledgeItem(list, item, context);
+        list = result.list;
+        added.push(result.item);
       });
       store.setMerchantKnowledge(merchantId, list);
       return added;
@@ -419,17 +614,22 @@
     },
     addMerchantSetKnowledge: function (setId, item) {
       var list = store.getMerchantSetKnowledge(setId).slice();
-      item.id = item.id || nextId('k');
-      list.push(item);
-      store.setMerchantSetKnowledge(setId, list);
-      return item;
+      var result = addKnowledgeItem(list, item, { scopeType: 'merchantSet', scopeId: setId });
+      store.setMerchantSetKnowledge(setId, result.list);
+      return result.item;
     },
     updateMerchantSetKnowledge: function (setId, id, item) {
-      var list = store.getMerchantSetKnowledge(setId).map(function (k) {
-        return k.id === id ? Object.assign({}, k, item, { id: id }) : k;
-      });
-      store.setMerchantSetKnowledge(setId, list);
-      return list;
+      var list = store.getMerchantSetKnowledge(setId);
+      var result = updateKnowledgeItem(list, id, item, { scopeType: 'merchantSet', scopeId: setId });
+      store.setMerchantSetKnowledge(setId, result.list);
+      return result.list;
+    },
+    restoreMerchantSetKnowledge: function (setId, id, recordId) {
+      var list = store.getMerchantSetKnowledge(setId);
+      var result = restoreKnowledgeItem(list, { scopeType: 'merchantSet', scopeId: setId }, id, recordId);
+      if (result.error) return result;
+      store.setMerchantSetKnowledge(setId, result.list);
+      return result;
     },
     deleteMerchantSetKnowledge: function (setId, id) {
       var list = store.getMerchantSetKnowledge(setId).filter(function (k) { return k.id !== id; });
@@ -485,17 +685,22 @@
     },
     addIndustryKnowledge: function (industryId, item) {
       var list = store.getIndustryKnowledge(industryId).slice();
-      item.id = item.id || nextId('k');
-      list.push(item);
-      store.setIndustryKnowledge(industryId, list);
-      return item;
+      var result = addKnowledgeItem(list, item, { scopeType: 'industry', scopeId: industryId });
+      store.setIndustryKnowledge(industryId, result.list);
+      return result.item;
     },
     updateIndustryKnowledge: function (industryId, id, item) {
-      var list = store.getIndustryKnowledge(industryId).map(function (k) {
-        return k.id === id ? Object.assign({}, k, item, { id: id }) : k;
-      });
-      store.setIndustryKnowledge(industryId, list);
-      return list;
+      var list = store.getIndustryKnowledge(industryId);
+      var result = updateKnowledgeItem(list, id, item, { scopeType: 'industry', scopeId: industryId });
+      store.setIndustryKnowledge(industryId, result.list);
+      return result.list;
+    },
+    restoreIndustryKnowledge: function (industryId, id, recordId) {
+      var list = store.getIndustryKnowledge(industryId);
+      var result = restoreKnowledgeItem(list, { scopeType: 'industry', scopeId: industryId }, id, recordId);
+      if (result.error) return result;
+      store.setIndustryKnowledge(industryId, result.list);
+      return result;
     },
     deleteIndustryKnowledge: function (industryId, id) {
       var list = store.getIndustryKnowledge(industryId).filter(function (k) { return k.id !== id; });
@@ -512,17 +717,22 @@
     },
     addGlobalKnowledge: function (item) {
       var list = store.getGlobalKnowledge().slice();
-      item.id = item.id || nextId('k');
-      list.push(item);
-      save('globalKnowledge', list);
-      return item;
+      var result = addKnowledgeItem(list, item, { scopeType: 'global', scopeId: '' });
+      save('globalKnowledge', result.list);
+      return result.item;
     },
     updateGlobalKnowledge: function (id, item) {
-      var list = store.getGlobalKnowledge().map(function (k) {
-        return k.id === id ? Object.assign({}, k, item, { id: id }) : k;
-      });
-      save('globalKnowledge', list);
-      return list;
+      var list = store.getGlobalKnowledge();
+      var result = updateKnowledgeItem(list, id, item, { scopeType: 'global', scopeId: '' });
+      save('globalKnowledge', result.list);
+      return result.list;
+    },
+    restoreGlobalKnowledge: function (id, recordId) {
+      var list = store.getGlobalKnowledge();
+      var result = restoreKnowledgeItem(list, { scopeType: 'global', scopeId: '' }, id, recordId);
+      if (result.error) return result;
+      save('globalKnowledge', result.list);
+      return result;
     },
     deleteGlobalKnowledge: function (id) {
       var list = store.getGlobalKnowledge().filter(function (k) { return k.id !== id; });
@@ -583,9 +793,53 @@
     },
   };
 
+  /** 为功能上线前已有的知识补齐初始快照，不改变原编号与生成规则 */
+  function initializeKnowledgeHistory() {
+    var historyStore = getHistoryStore();
+    var sources = [];
+    var systemOperator = { username: 'system', name: '系统初始' };
+
+    store.getMerchants().forEach(function (merchant) {
+      store.getMerchantKnowledge(merchant.id).forEach(function (item) {
+        sources.push({ item: item, context: { scopeType: 'merchant', scopeId: merchant.id } });
+      });
+    });
+    store.getMerchantSets().forEach(function (set) {
+      store.getMerchantSetKnowledge(set.id).forEach(function (item) {
+        sources.push({ item: item, context: { scopeType: 'merchantSet', scopeId: set.id } });
+      });
+    });
+    store.getIndustries().forEach(function (industry) {
+      store.getIndustryKnowledge(industry.id).forEach(function (item) {
+        sources.push({ item: item, context: { scopeType: 'industry', scopeId: industry.id } });
+      });
+    });
+    store.getGlobalKnowledge().forEach(function (item) {
+      sources.push({ item: item, context: { scopeType: 'global', scopeId: '' } });
+    });
+
+    sources.forEach(function (source) {
+      if (!source.item || !source.item.id || historyStore.items[source.item.id]) return;
+      KnowledgeHistory.addRecord(
+        source.item.id,
+        Object.assign({}, source.context, {
+          at: 0,
+          operator: systemOperator
+        }),
+        'initialize',
+        null,
+        source.item
+      );
+      historyStore = getHistoryStore();
+    });
+  }
+
+  initializeKnowledgeHistory();
+
   // ====================== 导出模块 ======================
   // 将 AuthModule 挂载到 store 上
   store.Auth = AuthModule;
+  store.KnowledgeHistory = KnowledgeHistory;
 
   // 导出到全局
   global.MockStore = store;
